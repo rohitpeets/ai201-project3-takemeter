@@ -167,6 +167,31 @@ The joke is implied — Messi being unknown at a grocery store is absurd given h
 A documented edge case from planning.md — sarcastic outcome claims. The comment is clearly a joke (making a definitive tournament prediction based on one Senegal performance) but structurally looks exactly like a Prediction. The model correctly identified the future-outcome structure but missed the sarcastic intent entirely.
 
 ---
+## Sample Classifications
+
+| Text | True Label | Predicted | Confidence | Notes |
+|---|---|---|---|---|
+| "Saliba and Upamecano have not been seriously tested yet. They spend most of their game recovering loose balls and giving it back to their midfield." | analysis | analysis | 0.88 | ✅ Correct — tactical observation with specific positional detail, exactly what Analysis is designed to capture |
+| "I think Haaland might get there. Needs to deliver against France though." | prediction | reaction | 0.44 | ❌ Short conditional forecast; model missed the future-outcome structure |
+| "Before anyone feels bad for Algeria, the real victims are the Portugal players watching a certain teammate..." | humor | analysis | 0.96 | ❌ Evaluative vocabulary fooled the model into high-confidence wrong call |
+| "We could see double digits for multiple players at this point wow" | prediction | reaction | 0.70 | ❌ Emotionally toned forecast classified as pure reaction |
+| "0 goals in 16 matches for Bryne. Champions League and World Cup is all well and good, but clearly not cut out for the pressure of second tier Norwegian football." | humor | analysis | 0.95 | ❌ Stat-framed sarcasm — model read the numbers as Analysis evidence |
+
+---
+
+## Spec Reflection
+
+**Where the spec helped:** The spec's emphasis on label design before any data collection was the most valuable constraint. Writing decision rules for edge cases (Analysis vs Reaction, Humor vs Prediction) before annotating 200 examples meant annotation was consistent rather than decided case-by-case. Without that upfront work the training signal would have been much noisier.
+
+**Where implementation diverged:** The spec assumed fine-tuning would improve on the zero-shot baseline by at least 5 percentage points. The opposite happened — overall accuracy regressed from 0.750 to 0.625. This was partly a dataset size problem (112 training examples after splitting) and partly a label merge problem: collapsing Opinion into Reaction created a noisy class the model couldn't learn cleanly. The spec didn't anticipate that a 4-label constraint would force a taxonomy change that hurt one class's learnability.
+
+---
+
+## AI Tool Usage
+
+**Instance 1 — Wrong prediction pattern analysis:** After running evaluation, I pasted all 9 misclassified examples into Claude and asked it to identify common patterns. It flagged that 5 of 9 errors involved Humor being misclassified as Analysis or Reaction, and that the Humor errors split into two subtypes: stat-framed sarcasm (model reads numbers as evidence → Analysis) and implied absurdity without explicit joke markers (model reads personal tone → Reaction). I verified both patterns against the confusion matrix — Humor had the lowest recall at 0.33 — and included them in the failure analysis.
+
+**Instance 2 — Pre-labeling assistance:** Claude was used to suggest initial labels for batches of Reddit comments using the label definitions from planning.md. Every suggested label was reviewed manually before being committed to the dataset. Approximately 30% of suggestions were overridden, mostly on Humor/Reaction boundary cases where Claude defaulted to Reaction for dry sarcasm.
 
 ## What the Model Learned vs What Was Intended
 
@@ -204,9 +229,3 @@ The Reaction label is the weakest point — merging Opinion and Reaction created
 ```
 
 ---
-
-## AI Tool Usage
-
-- **Claude (claude.ai):** Primary development assistant throughout. Used for label stress-testing, pre-labeling assistance, dataset filtering, hyperparameter troubleshooting, and evaluation analysis. All final label decisions were made manually.
-- **ChatGPT:** Used for initial label planning and annotation assistance as documented in planning.md.
-- **Groq (llama-3.3-70b-versatile):** Zero-shot baseline classifier.
